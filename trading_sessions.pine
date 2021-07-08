@@ -1,0 +1,232 @@
+//////////////////////////////////////////////////////////////////////////////
+//                                                                          //
+// @Author /u/Thlem                                                         //
+// Script providing information about each Market Session, whether they are //
+// open or close. Supporting crypto which is a 24h market, as it behaves    //
+// a little bit different in term of identifying opening and closing hours. //
+//                                                                          //
+//////////////////////////////////////////////////////////////////////////////
+
+//@version = 4
+study(title='MY:Trading Sessions', overlay=false)
+
+//////////////////////////////////////////
+// Market Session Colors
+//////////////////////////////////////////
+newYorkColour   = color.red
+berlinColour    = color.blue
+londonColour    = color.green
+tokyoColour     = color.orange
+sydneyColour    = color.purple
+noSessionColour = color.gray
+
+////////////////////////////////////////////////////////////////////////////
+// Check if the current chart is forex, commodities or crypto(24h)
+////////////////////////////////////////////////////////////////////////////
+var isTraditional   = syminfo.type == 'forex' or syminfo.type == 'cfd'
+var isCrypto        = syminfo.type == 'crypto'
+
+////////////////////////////////////////////////////////////////////////////
+// Each Market Session Opening And Closing Hours.
+// {market}Session is used to define if a market is open or closed (bool)
+////////////////////////////////////////////////////////////////////////////
+sydneyHourOpen  = isTraditional ? 18 : isCrypto ? 22 : 0
+sydneyHourClose = isTraditional ? 02 : isCrypto ? 06 : 0
+sydneySession   = isTraditional ? '1800-0200' : isCrypto ? '2200-0600' : na
+
+tokyoHourOpen   = isTraditional ? 19 : isCrypto ? 23 : 0
+tokyoHourClose  = isTraditional ? 03 : isCrypto ? 07 : 0
+tokyoSession    = isTraditional ? '1900-0300' : isCrypto ? '2300-0700' : na
+
+berlinHourOpen  = isTraditional ? 02 : isCrypto ? 06 : 0
+berlinHourClose = isTraditional ? 10 : isCrypto ? 14 : 0
+berlinSession   = isTraditional ? '0200-1000' : isCrypto ? '0600-1400' : na
+
+londonHourOpen  = isTraditional ? 03 : isCrypto ? 07 : 0
+londonHourClose = isTraditional ? 11 : isCrypto ? 15 : 0
+londonSession   = isTraditional ? '0300-1100' : isCrypto ? '0700-1500' : na
+
+newYorkHourOpen  = isTraditional ? 08 : isCrypto ? 12 : 0
+newYorkHourClose = isTraditional ? 16 : isCrypto ? 20 : 0
+newYorkSession   = isTraditional ? '0800-1600' : isCrypto ? '1200-2000' : na
+
+// On the 1 minute timeframe, define if the given session is open or closed
+isSessionOpen(sess) => na(time('1', sess)) == false
+
+////////////////////////////////////////////////////
+// Each Market Open/Close state
+////////////////////////////////////////////////////
+newYorkOpen = isSessionOpen(newYorkSession)
+berlinOpen  = isSessionOpen(berlinSession)
+londonOpen  = isSessionOpen(londonSession)
+tokyoOpen   = isSessionOpen(tokyoSession)
+sydneyOpen  = isSessionOpen(sydneySession)
+noSession   = newYorkOpen == false and berlinOpen == false and londonOpen == false and tokyoOpen == false and sydneyOpen == false
+
+// For timeframes above minutes, we consider each market being open
+isDailyorAbove = timeframe.isdaily or timeframe.isweekly or timeframe.ismonthly
+
+//////////////////////////////////////////////////////////
+// Plot a dot corresponding to the opened markets
+//////////////////////////////////////////////////////////
+plotshape((newYorkOpen or isDailyorAbove) and (isTraditional or (isCrypto and noSession == false)) ? 20 : na, style=shape.circle, size=size.tiny, color=newYorkColour, location=location.absolute, title='New York')
+plotshape((londonOpen or isDailyorAbove) and (isTraditional or (isCrypto and noSession == false)) ? 15 : na, style=shape.circle, size=size.tiny, color=londonColour, location=location.absolute, title='London')
+plotshape((berlinOpen or isDailyorAbove) and (isTraditional or (isCrypto and noSession == false)) ? 10 : na, style=shape.circle, size=size.tiny, color=berlinColour, location=location.absolute, title='Berlin')
+plotshape((tokyoOpen or isDailyorAbove) and (isTraditional or (isCrypto and noSession == false)) ? 5 : na, style=shape.circle, size=size.tiny, color=tokyoColour, location=location.absolute, title='Tokyo')
+plotshape((sydneyOpen or isDailyorAbove) and (isTraditional or (isCrypto and noSession == false)) ? 0 : na, style=shape.circle, size=size.tiny, color=sydneyColour, location=location.absolute, title='Sydney')
+plotshape(noSession ? -5 : na, style=shape.circle, size=size.tiny, color=noSessionColour, location=location.absolute)
+
+//////////////////////////////////////////////////////////
+// Legend Positioning
+//////////////////////////////////////////////////////////
+var float minBarTime    = 999999999999
+currentTime             = time(timeframe.period)
+timeOfCurrentBar        = change(currentTime, 1)
+legendPosition          = -4
+legendItemGap           = 5
+leftGap                 = timeframe.isminutes ? 25 : 2
+
+//////////////////////////////////////////////////////////
+// No Session Legend
+//////////////////////////////////////////////////////////
+var label no_session_legend = label.new(bar_index, close, xloc=xloc.bar_time)
+label.set_style(no_session_legend, label.style_none)
+minBarTime := not na(minBarTime) ? min(timeOfCurrentBar, minBarTime) : timeOfCurrentBar
+label.set_x(no_session_legend, int(currentTime+(leftGap*minBarTime)))
+label.set_y(no_session_legend, legendPosition)
+label.set_textcolor(no_session_legend, noSessionColour)
+label.set_text(no_session_legend, 'No Session')
+
+//////////////////////////////////////////////////////////
+// For the given session, returns, in seconds, the time
+// left before the next open or the next close
+//////////////////////////////////////////////////////////
+getMarketTimeToNextStateInSeconds(openH, closeH, isOpen) =>
+    toNextStateInSeconds = float(0)
+    if (isOpen)
+        toNextStateInSeconds := timestamp(year, month, dayofmonth, closeH, 00)
+        if (toNextStateInSeconds < 0)
+            toNextStateInSeconds := timestamp(year, month, dayofmonth + 1, closeH, 00)
+    else
+        toNextStateInSeconds := timestamp(year, month, dayofmonth, openH, 00)
+        if (toNextStateInSeconds < 0)
+            toNextStateInSeconds := timestamp(year, month, dayofmonth + 1, openH, 00)
+    // MS to S
+    (toNextStateInSeconds - timenow) / 1000
+
+//////////////////////////////////////////////////////////
+// For the given session, returns, a label representing
+// the current state of a session.
+// String wrapped into >> << when the market is open
+//////////////////////////////////////////////////////////
+getSessionLabel(market, isOpen, h, m, s) =>
+    str = ''
+    str := isOpen ? str + '>> ' : str + ''
+    str := str + market
+    str := isOpen ? str + ' Close in : ' : str + ' Open in : '
+    str := str + tostring(h)
+    str := str + 'h:'
+    str := str + tostring(m)
+    str := str + 'm:'
+    str := str + tostring(s)
+    str := str + 's'
+    str := isOpen ? str + ' <<' : str + ''
+    str
+
+//////////////////////////////////////////////////////////
+// Sydney Session Legend
+//////////////////////////////////////////////////////////
+sydneyOpenCloseinSeconds    = getMarketTimeToNextStateInSeconds(sydneyHourOpen, sydneyHourClose, sydneyOpen)
+sydneySeconds               = floor(sydneyOpenCloseinSeconds % 60)
+sydneyMinutes               = floor((sydneyOpenCloseinSeconds / 60) % 60)
+sydneyHours                 = floor((sydneyOpenCloseinSeconds / 3600))
+
+legendPosition := legendPosition + legendItemGap
+var label syd_legend = label.new(bar_index, close, xloc=xloc.bar_time)
+label.set_style(syd_legend, label.style_none)
+minBarTime := not na(minBarTime) ? min(timeOfCurrentBar, minBarTime) : timeOfCurrentBar
+label.set_x(syd_legend, int(currentTime+(leftGap*minBarTime)))
+label.set_y(syd_legend, legendPosition)
+label.set_textcolor(syd_legend, sydneyColour)
+label.set_text(syd_legend, getSessionLabel('Sydney', sydneyOpen, sydneyHours, sydneyMinutes, sydneySeconds))
+
+//////////////////////////////////////////////////////////
+// Tokyo Session Legend
+//////////////////////////////////////////////////////////
+tokyoOpenCloseinSeconds     = getMarketTimeToNextStateInSeconds(tokyoHourOpen, tokyoHourClose, tokyoOpen)
+tokyoSeconds                = floor(tokyoOpenCloseinSeconds % 60)
+tokyoMinutes                = floor((tokyoOpenCloseinSeconds / 60) % 60)
+tokyoHours                  = floor((tokyoOpenCloseinSeconds / 3600))
+
+legendPosition := legendPosition + legendItemGap
+var label tok_legend = label.new(bar_index, close, xloc=xloc.bar_time)
+label.set_style(tok_legend, label.style_none)
+label.set_x(tok_legend, int(currentTime+(leftGap*minBarTime)))
+label.set_y(tok_legend, legendPosition)
+label.set_textcolor(tok_legend, tokyoColour)
+label.set_text(tok_legend, getSessionLabel('Tokyo', tokyoOpen, tokyoHours, tokyoMinutes, tokyoSeconds))
+
+//////////////////////////////////////////////////////////
+// Berlin Session Legend
+//////////////////////////////////////////////////////////
+berlinOpenCloseinSeconds    = getMarketTimeToNextStateInSeconds(berlinHourOpen, berlinHourClose, berlinOpen)
+berlinSeconds               = floor(berlinOpenCloseinSeconds % 60)
+berlinMinutes               = floor((berlinOpenCloseinSeconds / 60) % 60)
+berlinHours                 = floor((berlinOpenCloseinSeconds / 3600))
+
+legendPosition := legendPosition + legendItemGap
+var label bl_legend = label.new(bar_index, close, xloc=xloc.bar_time)
+label.set_style(bl_legend, label.style_none)
+label.set_x(bl_legend, int(currentTime+(leftGap*minBarTime)))
+label.set_y(bl_legend, legendPosition)
+label.set_textcolor(bl_legend, berlinColour)
+label.set_text(bl_legend, getSessionLabel('Berlin', berlinOpen, berlinHours, berlinMinutes, berlinSeconds))
+
+//////////////////////////////////////////////////////////
+// London Session Legend
+//////////////////////////////////////////////////////////
+londonOpenCloseinSeconds    = getMarketTimeToNextStateInSeconds(londonHourOpen, londonHourClose, londonOpen)
+londonSeconds               = floor(londonOpenCloseinSeconds % 60)
+londonMinutes               = floor((londonOpenCloseinSeconds / 60) % 60)
+londonHours                 = floor((londonOpenCloseinSeconds / 3600))
+
+legendPosition := legendPosition + legendItemGap
+var label lon_legend = label.new(bar_index, close, xloc=xloc.bar_time)
+label.set_style(lon_legend, label.style_none)
+label.set_x(lon_legend, int(currentTime+(leftGap*minBarTime)))
+label.set_y(lon_legend, legendPosition)
+label.set_textcolor(lon_legend, londonColour)
+label.set_text(lon_legend, getSessionLabel('London', londonOpen, londonHours, londonMinutes, londonSeconds))
+
+//////////////////////////////////////////////////////////
+// New York Session Legend
+//////////////////////////////////////////////////////////
+newYorkOpenCloseinSeconds   = getMarketTimeToNextStateInSeconds(newYorkHourOpen, newYorkHourClose, newYorkOpen)
+newYorkSeconds              = floor(newYorkOpenCloseinSeconds % 60)
+newYorkMinutes              = floor((newYorkOpenCloseinSeconds / 60) % 60)
+newYorkHours                = floor((newYorkOpenCloseinSeconds / 3600))
+
+legendPosition := legendPosition + legendItemGap
+var label ny_legend = label.new(bar_index, close, xloc=xloc.bar_time)
+label.set_style(ny_legend, label.style_none)
+label.set_x(ny_legend, int(currentTime+(leftGap*minBarTime)))
+label.set_y(ny_legend, legendPosition)
+label.set_textcolor(ny_legend, newYorkColour)
+label.set_text(ny_legend, getSessionLabel('New York', newYorkOpen, newYorkHours, newYorkMinutes, newYorkSeconds))
+
+
+//////////////////////////////////////////////////////////
+// Alerts 5 min before Market Open or Close
+//////////////////////////////////////////////////////////
+londonIn5Min = londonHours == 0 and londonMinutes == 5
+alertcondition(condition=(londonOpen == true and londonIn5Min), title='LONDON - Close in 5 min', message='LONDON - Close in 5 min')
+alertcondition(condition=(londonOpen == false and londonIn5Min), title='LONDON - Open in 5 min', message='LONDON - Open in 5 min')
+newYorkIn5Min = newYorkHours == 0 and newYorkMinutes == 5
+alertcondition(condition=(newYorkOpen == true and newYorkIn5Min), title='NEW YORK - Close in 5 min', message='NEW YORK - Close in 5 min')
+alertcondition(condition=(newYorkOpen == false and newYorkIn5Min), title='NEW YORK - Open in 5 min', message='NEW YORK - Open in 5 min')
+berlinIn5Min = berlinHours == 0 and berlinMinutes == 5
+alertcondition(condition=(berlinOpen == true and berlinIn5Min), title='BERLIN - Close in 5 min', message='BERLIN - Close in 5 min')
+alertcondition(condition=(berlinOpen == false and berlinIn5Min), title='BERLIN - Open in 5 min', message='BERLIN - Open in 5 min')
+tokyoIn5Min = tokyoHours == 0 and tokyoMinutes == 5
+alertcondition(condition=(tokyoOpen == true and tokyoIn5Min), title='TOKYO - Close in 5 min', message='TOKYO - Close in 5 min')
+alertcondition(condition=(tokyoOpen == false and tokyoIn5Min), title='TOKYO - Open in 5 min', message='TOKYO - Open in 5 min')
