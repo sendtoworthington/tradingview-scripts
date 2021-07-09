@@ -103,6 +103,7 @@ label.set_text(no_session_legend, 'No Session')
 //////////////////////////////////////////////////////////
 getMarketTimeToNextStateInSeconds(openH, closeH, isOpen) =>
     toNextStateInSeconds = float(0)
+    today = dayofweek == dayofweek.saturday ? dayofmonth + 2 : dayofweek.sunday ? dayofmonth + 1 : dayofmonth
     if (isOpen)
         toNextStateInSeconds := timestamp(year, month, dayofmonth, closeH, 00)
         if (toNextStateInSeconds - timenow < 0)
