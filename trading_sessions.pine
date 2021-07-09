@@ -103,15 +103,15 @@ label.set_text(no_session_legend, 'No Session')
 //////////////////////////////////////////////////////////
 getMarketTimeToNextStateInSeconds(openH, closeH, isOpen) =>
     toNextStateInSeconds = float(0)
-    today = dayofweek == dayofweek.saturday ? dayofmonth + 2 : dayofweek.sunday ? dayofmonth + 1 : dayofmonth
+    toNext = dayofweek == dayofweek.saturday ? dayofmonth + 2 : dayofweek == dayofweek.sunday ? dayofmonth + 1 : dayofmonth
     if (isOpen)
-        toNextStateInSeconds := timestamp(year, month, dayofmonth, closeH, 00)
+        toNextStateInSeconds := timestamp(year, month, toNext, closeH, 00)
         if (toNextStateInSeconds - timenow < 0)
-            toNextStateInSeconds := timestamp(year, month, dayofmonth + 1, closeH, 00)
+            toNextStateInSeconds := timestamp(year, month, toNext + 1, closeH, 00)
     else
-        toNextStateInSeconds := timestamp(year, month, dayofmonth, openH, 00)
+        toNextStateInSeconds := timestamp(year, month, toNext, openH, 00)
         if (toNextStateInSeconds - timenow < 0)
-            toNextStateInSeconds := timestamp(year, month, dayofmonth + 1, openH, 00)
+            toNextStateInSeconds := timestamp(year, month, toNext + 1, openH, 00)
     // MS to S
     (toNextStateInSeconds - timenow) / 1000
 
