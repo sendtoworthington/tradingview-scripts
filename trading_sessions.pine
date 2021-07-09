@@ -105,11 +105,11 @@ getMarketTimeToNextStateInSeconds(openH, closeH, isOpen) =>
     toNextStateInSeconds = float(0)
     if (isOpen)
         toNextStateInSeconds := timestamp(year, month, dayofmonth, closeH, 00)
-        if (toNextStateInSeconds < 0)
+        if (toNextStateInSeconds - timenow < 0)
             toNextStateInSeconds := timestamp(year, month, dayofmonth + 1, closeH, 00)
     else
         toNextStateInSeconds := timestamp(year, month, dayofmonth, openH, 00)
-        if (toNextStateInSeconds < 0)
+        if (toNextStateInSeconds - timenow < 0)
             toNextStateInSeconds := timestamp(year, month, dayofmonth + 1, openH, 00)
     // MS to S
     (toNextStateInSeconds - timenow) / 1000
