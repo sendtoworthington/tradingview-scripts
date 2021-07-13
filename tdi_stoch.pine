@@ -1,0 +1,91 @@
+//@version=4
+study(title="TDI/STOCH", shorttitle="TS", format=format.price, precision=2, resolution="")
+
+//
+// Input
+//
+
+mode = input("LINES", title="Configuration mode :", options=['LINES', 'SIGNALS'])
+showLines = mode == "LINES"
+showSignals = mode == "SIGNALS"
+
+//
+// Colors
+//
+
+///////////////////////////////
+// Stoch
+///////////////////////////////
+highValue = 82
+lowValue = 18
+smoothingK = 5
+smoothingD = 3
+
+getStoch(stochPeriod) =>
+    values = array.new_float()
+    k = sma(stoch(close, high, low, stochPeriod), smoothingD)
+    array.push(values, k)
+    array.push(values, sma(k, smoothingD))
+    values
+
+getColor(value, lowV, highV, defaultColor) =>
+    if (value >= highV)
+        color.red
+    else if (value <= lowV)
+        color.green
+    else
+        defaultColor
+
+//
+// Stoch Period 1
+//
+sotch1 = getStoch(15)
+plot(showLines ? array.get(sotch1, 0) : na, title="sotch 1 K", color=getColor(array.get(sotch1, 0), lowValue, highValue, color.new(color.white, 70)))
+plot(showLines ? array.get(sotch1, 1) : na, title="sotch 1 D", color=getColor(array.get(sotch1, 1), lowValue, highValue, color.new(color.white, 70)))
+
+//
+// Stoch Period 2
+//
+sotch2 = getStoch(32)
+plot(showLines ? array.get(sotch2, 0) : na, title="sotch 2 K", color=getColor(array.get(sotch2, 0), lowValue, highValue, color.new(color.white, 70)))
+plot(showLines ? array.get(sotch2, 1) : na, title="sotch 2 D", color=getColor(array.get(sotch2, 1), lowValue, highValue, color.new(color.white, 70)))
+
+//
+// Stoch Period 3
+//
+sotch3 = getStoch(50)
+plot(showLines ? array.get(sotch3, 0) : na, title="sotch 3 K", color=getColor(array.get(sotch3, 0), lowValue, highValue, color.new(color.white, 70)))
+plot(showLines ? array.get(sotch3, 1) : na, title="sotch 3 D", color=getColor(array.get(sotch3, 1), lowValue, highValue, color.new(color.white, 70)))
+
+h0 = hline(showLines ? 80 : na, "Upper Band", color=color.new(color.red, 100))
+h00 = hline(showLines ? 90 : na, "Upper Band", color=color.new(color.red, 100))
+stochBandColor = color.new(color.white, 90)
+stochBandColor := array.get(sotch1, 0) <= lowValue and array.get(sotch1, 1) <= lowValue and array.get(sotch2, 0) <= lowValue and array.get(sotch2, 1) <= lowValue and array.get(sotch3, 0) <= lowValue and array.get(sotch3, 1) <= lowValue ? color.new(color.green, 40) : stochBandColor 
+stochBandColor := array.get(sotch1, 0) >= highValue and array.get(sotch1, 1) >= highValue and array.get(sotch2, 0) >= highValue and array.get(sotch2, 1) >= highValue and array.get(sotch3, 0) >= highValue and array.get(sotch3, 1) >= highValue ? color.new(color.red, 40) : stochBandColor
+fill(h0, h00, color=stochBandColor, title="Background")
+
+h1 = hline(showLines ? 10 : na, "Lower Band", color=color.new(color.green, 100))
+h11 = hline(showLines ? 20 : na, "Lower Band", color=color.new(color.green, 100))
+fill(h1, h11, color=stochBandColor, title="Background")
+
+//
+// TDI
+//
+rsiPeriod = input(14, minval = 1, title = "RSI Period", group="TDI Config")
+bandLength = input(31, minval = 1, title = "Band Length", group="TDI Config")
+lengthrsipl = input(1, minval = 0, title = "Fast MA on RSI", group="TDI Config")
+lengthtradesl = input(9, minval = 1, title = "Slow MA on RSI", group="TDI Config")
+src = close
+r = rsi(src, rsiPeriod)
+ma = sma(r, bandLength)
+offs = (1.6185 * stdev(r, bandLength))
+up = ma + offs
+dn = ma - offs
+mid = (up + dn) / 2
+fastMA = sma(r, lengthrsipl)
+slowMA = sma(r, lengthtradesl)
+
+plot(showLines ? fastMA : na, "RSI", color=getColor(fastMA, dn, up, color.new(color.yellow, 50)), linewidth=2)
+upl = plot(showLines ? up : na, "Upper Band", color=color.new(color.white, 100))
+dnl = plot(showLines ? dn : na, "Lower Band", color=color.new(color.white, 100))
+fill(upl, dnl, color=getColor(fastMA, dn, up, color.new(color.white, 80)))  
