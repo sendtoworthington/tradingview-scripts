@@ -1,7 +1,8 @@
 //@version=4
-study(title="TDI/STOCH", shorttitle="TS", format=format.price, precision=2, resolution="")
+study(title="TDI/STOCH/SIGNALS", shorttitle="TSS", format=format.price, precision=2, resolution="", overlay=true)
 
 mode = input("DEFAULT", title="Configuration mode :", options=['DEFAULT', 'BTCUSD/4H'])
+
 
 ///////////////////////////////
 // Stoch
@@ -32,40 +33,22 @@ getColor(value, lowV, highV, defaultColor) =>
 sotch1 = getStoch(15)
 stoch1k = array.get(sotch1, 0)
 stoch1d = array.get(sotch1, 1)
-plot(stoch1k, title="sotch 1 K", color=getColor(stoch1k, lowValue, highValue, color.new(color.white, 70)))
-plot(stoch1d, title="sotch 1 D", color=getColor(stoch1d, lowValue, highValue, color.new(color.white, 70)))
-
 //
 // Stoch Period 2
 //
 sotch2 = getStoch(32)
 stoch2k = array.get(sotch2, 0)
 stoch2d = array.get(sotch2, 1)
-plot(stoch2k, title="sotch 2 K", color=getColor(stoch2k, lowValue, highValue, color.new(color.white, 70)))
-plot(stoch2d, title="sotch 2 D", color=getColor(stoch2d, lowValue, highValue, color.new(color.white, 70)))
-
 //
 // Stoch Period 3
 //
 sotch3 = getStoch(50)
 stoch3k = array.get(sotch3, 0)
 stoch3d = array.get(sotch3, 1)
-plot(stoch3k, title="sotch 3 K", color=getColor(stoch3k, lowValue, highValue, color.new(color.white, 70)))
-plot(stoch3d, title="sotch 3 D", color=getColor(stoch3d, lowValue, highValue, color.new(color.white, 70)))
 
 stochBuySignal = stoch1k <= lowValue and stoch1d <= lowValue and stoch2k <= lowValue and stoch2d <= lowValue and stoch3k <= lowValue and stoch3d <= lowValue
 stochSellSignal = stoch1k >= highValue and stoch1d >= highValue and stoch2k >= highValue and stoch2d >= highValue and stoch3k >= highValue and stoch3d >= highValue
 
-h0 = hline(80, "Upper Band", color=color.new(color.red, 100))
-h00 = hline(90, "Upper Band", color=color.new(color.red, 100))
-stochBandColor = color.new(color.white, 90)
-stochBandColor := stochBuySignal ? color.new(color.green, 40) : stochBandColor 
-stochBandColor := stochSellSignal ? color.new(color.red, 40) : stochBandColor
-fill(h0, h00, color=stochBandColor, title="Background")
-
-h1 = hline(10, "Lower Band", color=color.new(color.green, 100))
-h11 = hline(20, "Lower Band", color=color.new(color.green, 100))
-fill(h1, h11, color=stochBandColor, title="Background")
 
 //
 // TDI
@@ -91,6 +74,7 @@ rsiOverbought = if (mode == 'BTCUSD/4H')
     65
 else
     overbought
+
 src = close
 r = rsi(src, rsiPeriod)
 ma = sma(r, bandLength)
@@ -104,13 +88,11 @@ slowMA = sma(r, lengthtradesl)
 tdiBuySignal = fastMA <= dn and fastMA <= rsiOversold
 tdiSellSignal = fastMA >= up and fastMA >= rsiOverbought
 
-plot(fastMA, "RSI", color=getColor(fastMA, dn, up, color.new(color.yellow, 50)), linewidth=2)
-upl = plot(up, "Upper Band", color=color.new(color.white, 100))
-dnl = plot(dn, "Lower Band", color=color.new(color.white, 100))
-fill(upl, dnl, color=tdiBuySignal ? color.green : tdiSellSignal ? color.red : color.new(color.white, 80))
-
 buySignal = tdiBuySignal and stochBuySignal
 sellSignal = tdiSellSignal and stochSellSignal
+
+plotshape(buySignal, style=shape.labelup,size=size.small, text="B", color=color.green, textcolor=color.white, location=location.belowbar)
+plotshape(sellSignal, style=shape.labeldown,size=size.small, text="S", color=color.red, textcolor=color.white, location=location.abovebar)
 
 alertcondition(condition=(buySignal), title='{{ticker}} - {{interval}} - BUY', message='{{ticker}} - {{interval}} - BUY - Wait candle close for confirmation of reversal')
 alertcondition(condition=(sellSignal), title='{{ticker}} - {{interval}} - SELL', message='{{ticker}} - {{interval}} - SELL - Wait candle close for confirmation of reversal')
