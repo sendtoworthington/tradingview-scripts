@@ -1,0 +1,181 @@
+//@version = 4
+study(title="WE:Trading Sessions", overlay=false)
+
+var isTraditional = syminfo.type == "forex" or syminfo.type == "cfd"
+var isCrypto = syminfo.type == "crypto"
+
+tokyoOC = array.new_int()
+array.push(tokyoOC, isTraditional ? 19 : isCrypto ? 23 : 0)
+array.push(tokyoOC, isTraditional ? 03 : isCrypto ? 07 : 0)
+tokyoSession   = isTraditional ? "1900-0300" : isCrypto ? "2300-0700" : na
+
+berlinOC = array.new_int()
+array.push(berlinOC, isTraditional ? 02 : isCrypto ? 06 : 0)
+array.push(berlinOC, isTraditional ? 10 : isCrypto ? 14 : 0)
+berlinSession  = isTraditional ? "0200-1000" : isCrypto ? "0600-1400" : na
+
+londonOC = array.new_int()
+array.push(londonOC, isTraditional ? 03 : isCrypto ? 07 : 0)
+array.push(londonOC, isTraditional ? 11 : isCrypto ? 15 : 0)
+londonSession  = isTraditional ? "0300-1100" : isCrypto ? "0700-1500" : na
+
+sydneyOC = array.new_int()
+array.push(sydneyOC, isTraditional ? 18 : isCrypto ? 22 : 0)
+array.push(sydneyOC, isTraditional ? 02 : isCrypto ? 06 : 0)
+sydneySession  = isTraditional ? "1800-0200" : isCrypto ? "2200-0600" : na
+
+newYorkOC = array.new_int()
+array.push(newYorkOC, isTraditional ? 08 : isCrypto ? 12 : 0)
+array.push(newYorkOC, isTraditional ? 16 : isCrypto ? 20 : 0)
+newYorkSession = isTraditional ? "0800-1600" : isCrypto ? "1200-2000" : na
+
+newYorkColour   = color.red
+berlinColour    = color.blue
+londonColour    = color.green
+tokyoColour     = color.orange
+sydneyColour    = color.purple
+noSessionColour = color.gray
+
+isSessionOpen(sess) => na(time("1", sess)) == false
+
+newYorkOpen = isSessionOpen(newYorkSession)
+berlinOpen = isSessionOpen(berlinSession)
+londonOpen = isSessionOpen(londonSession)
+tokyoOpen = isSessionOpen(tokyoSession)
+sydneyOpen = isSessionOpen(sydneySession)
+noSession = newYorkOpen == false and berlinOpen == false and londonOpen == false and tokyoOpen == false and sydneyOpen == false
+
+isDailyorAbove = timeframe.isdaily or timeframe.isweekly or timeframe.ismonthly
+plotshape((newYorkOpen or isDailyorAbove) and (isTraditional or (isCrypto and noSession == false)) ? 20 : na, style=shape.circle, size=size.tiny, color=newYorkColour, location=location.absolute)
+plotshape((londonOpen or isDailyorAbove) and (isTraditional or (isCrypto and noSession == false)) ? 15 : na, style=shape.circle, size=size.tiny, color=londonColour, location=location.absolute)
+plotshape((berlinOpen or isDailyorAbove) and (isTraditional or (isCrypto and noSession == false)) ? 10 : na, style=shape.circle, size=size.tiny, color=berlinColour, location=location.absolute)
+plotshape((tokyoOpen or isDailyorAbove) and (isTraditional or (isCrypto and noSession == false)) ? 5 : na, style=shape.circle, size=size.tiny, color=tokyoColour, location=location.absolute)
+plotshape((sydneyOpen or isDailyorAbove) and (isTraditional or (isCrypto and noSession == false)) ? 0 : na, style=shape.circle, size=size.tiny, color=sydneyColour, location=location.absolute)
+plotshape(noSession ? -5 : na, style=shape.circle, size=size.tiny, color=noSessionColour, location=location.absolute)
+
+var float minBarTime = 999999999999
+adaptedDayOfMonth = hour >= 0 and hour <= 20 ? dayofmonth : dayofmonth + 1
+adaptedDayOfMonth := dayofweek == dayofweek.saturday ? adaptedDayOfMonth + 2 : adaptedDayOfMonth
+adaptedDayOfMonth := dayofweek == dayofweek.sunday ? adaptedDayOfMonth + 1 : adaptedDayOfMonth
+currentTime = time(timeframe.period)
+timeOfCurrentBar = change(currentTime, 1)
+legendPosition = -4
+legendItemGap = 5
+leftGap = if (timeframe.ismonthly)
+    2
+else if (timeframe.isweekly)
+    2
+else if (timeframe.isdaily)
+    2
+else
+    25
+
+var label no_session_legend = label.new(bar_index, close, xloc=xloc.bar_time)
+label.set_style(no_session_legend, label.style_none)
+minBarTime := not na(minBarTime) ? min(timeOfCurrentBar, minBarTime) : timeOfCurrentBar
+label.set_x(no_session_legend, int(currentTime+(leftGap*minBarTime)))
+label.set_y(no_session_legend, legendPosition)
+label.set_textcolor(no_session_legend, noSessionColour)
+label.set_text(no_session_legend, "No Session")
+
+legendPosition := legendPosition + legendItemGap
+var label syd_legend = label.new(bar_index, close, xloc=xloc.bar_time)
+label.set_style(syd_legend, label.style_none)
+minBarTime := not na(minBarTime) ? min(timeOfCurrentBar, minBarTime) : timeOfCurrentBar
+label.set_x(syd_legend, int(currentTime+(leftGap*minBarTime)))
+label.set_y(syd_legend, legendPosition)
+label.set_textcolor(syd_legend, sydneyColour)
+sydneyOpenCloseinSeconds = ((sydneyOpen ? timestamp(year, month, adaptedDayOfMonth, array.get(sydneyOC, 1), 00) :  timestamp(year, month, adaptedDayOfMonth, array.get(sydneyOC, 0), 00))  - timenow) / 1000
+if (sydneyOpenCloseinSeconds < 0)
+    adaptedDayOfMonth := dayofmonth
+    sydneyOpenCloseinSeconds := ((sydneyOpen ? timestamp(year, month, adaptedDayOfMonth, array.get(sydneyOC, 1), 00) :  timestamp(year, month, adaptedDayOfMonth, array.get(sydneyOC, 0), 00))  - timenow) / 1000
+  
+sydneySeconds = floor(sydneyOpenCloseinSeconds % 60)
+sydneyMinutes = floor((sydneyOpenCloseinSeconds / 60) % 60)
+sydneyHours = floor((sydneyOpenCloseinSeconds / 3600))
+
+sydneyLabel = if(sydneyOpen)
+    ">> Sydney Close in : " + tostring(sydneyHours) + "h:" + tostring(sydneyMinutes) + "m:" + tostring(sydneySeconds) + "s <<"
+else
+    "Sydney Open in : " + tostring(sydneyHours) + "h:" + tostring(sydneyMinutes) + "m:" + tostring(sydneySeconds) + "s"
+label.set_text(syd_legend, sydneyLabel)
+
+legendPosition := legendPosition + legendItemGap
+var label tok_legend = label.new(bar_index, close, xloc=xloc.bar_time)
+label.set_style(tok_legend, label.style_none)
+label.set_x(tok_legend, int(currentTime+(leftGap*minBarTime)))
+label.set_y(tok_legend, legendPosition)
+label.set_textcolor(tok_legend, tokyoColour)
+tokyoOpenCloseinSeconds = ((tokyoOpen ? timestamp(year, month, adaptedDayOfMonth, array.get(tokyoOC, 1), 00) :  timestamp(year, month, adaptedDayOfMonth, array.get(tokyoOC, 0), 00))  - timenow) / 1000
+tokyoSeconds = floor(tokyoOpenCloseinSeconds % 60)
+tokyoMinutes = floor((tokyoOpenCloseinSeconds / 60) % 60)
+tokyoHours = floor((tokyoOpenCloseinSeconds / 3600))
+
+tokyoLabel = if(tokyoOpen)
+    ">> Tokyo Close in : " + tostring(tokyoHours) + "h:" + tostring(tokyoMinutes) + "m:" + tostring(tokyoSeconds) + "s <<"
+else
+    "Tokyo Open in : " + tostring(tokyoHours) + "h:" + tostring(tokyoMinutes) + "m:" + tostring(tokyoSeconds) + "s"
+label.set_text(tok_legend, tokyoLabel)
+
+legendPosition := legendPosition + legendItemGap
+var label bl_legend = label.new(bar_index, close, xloc=xloc.bar_time)
+label.set_style(bl_legend, label.style_none)
+label.set_x(bl_legend, int(currentTime+(leftGap*minBarTime)))
+label.set_y(bl_legend, legendPosition)
+label.set_textcolor(bl_legend, berlinColour)
+berlinOpenCloseinSeconds = ((berlinOpen ? timestamp(year, month, adaptedDayOfMonth, array.get(berlinOC, 1), 00) :  timestamp(year, month, adaptedDayOfMonth, array.get(berlinOC, 0), 00))  - timenow) / 1000
+berlinSeconds = floor(berlinOpenCloseinSeconds % 60)
+berlinMinutes = floor((berlinOpenCloseinSeconds / 60) % 60)
+berlinHours = floor((berlinOpenCloseinSeconds / 3600))
+
+berlinLabel = if(berlinOpen)
+    ">> Berlin Close in : " + tostring(berlinHours) + "h:" + tostring(berlinMinutes) + "m:" + tostring(berlinSeconds) + "s <<"
+else
+    "Berlin Open in : " + tostring(berlinHours) + "h:" + tostring(berlinMinutes) + "m:" + tostring(berlinSeconds) + "s"
+label.set_text(bl_legend, berlinLabel)
+
+legendPosition := legendPosition + legendItemGap
+var label lon_legend = label.new(bar_index, close, xloc=xloc.bar_time)
+label.set_style(lon_legend, label.style_none)
+label.set_x(lon_legend, int(currentTime+(leftGap*minBarTime)))
+label.set_y(lon_legend, legendPosition)
+label.set_textcolor(lon_legend, londonColour)
+londonOpenCloseinSeconds = ((londonOpen ? timestamp(year, month, adaptedDayOfMonth, array.get(londonOC, 1), 00) :  timestamp(year, month, adaptedDayOfMonth, array.get(londonOC, 0), 00))  - timenow) / 1000
+londonSeconds = floor(londonOpenCloseinSeconds % 60)
+londonMinutes = floor((londonOpenCloseinSeconds / 60) % 60)
+londonHours = floor((londonOpenCloseinSeconds / 3600))
+
+londonLabel = if(londonOpen)
+    ">> London Close in : " + tostring(londonHours) + "h:" + tostring(londonMinutes) + "m:" + tostring(londonSeconds) + "s <<"
+else
+    "London Open in : " + tostring(londonHours) + "h:" + tostring(londonMinutes) + "m:" + tostring(londonSeconds) + "s"
+label.set_text(lon_legend, londonLabel)
+
+legendPosition := legendPosition + legendItemGap
+var label ny_legend = label.new(bar_index, close, xloc=xloc.bar_time)
+label.set_style(ny_legend, label.style_none)
+label.set_x(ny_legend, int(currentTime+(leftGap*minBarTime)))
+label.set_y(ny_legend, legendPosition)
+label.set_textcolor(ny_legend, newYorkColour)
+newYorkOpenCloseinSeconds = ((newYorkOpen ? timestamp(year, month, adaptedDayOfMonth, array.get(newYorkOC, 1), 00) :  timestamp(year, month, adaptedDayOfMonth, array.get(newYorkOC, 0), 00))  - timenow) / 1000
+newYorkSeconds = floor(newYorkOpenCloseinSeconds % 60)
+newYorkMinutes = floor((newYorkOpenCloseinSeconds / 60) % 60)
+newYorkHours = floor((newYorkOpenCloseinSeconds / 3600))
+newYorkLabel = if(newYorkOpen)
+    ">> New York Close in : " + tostring(newYorkHours) + "h:" + tostring(newYorkMinutes) + "m:" + tostring(newYorkSeconds) + "s <<"
+else
+    "New York Open in : " + tostring(newYorkHours) + "h:" + tostring(newYorkMinutes) + "m:" + tostring(newYorkSeconds) + "s"
+label.set_text(ny_legend, newYorkLabel)
+
+londonIn5Min = londonHours == 0 and londonMinutes == 5
+alertcondition(condition=(londonOpen == true and londonIn5Min), title='LONDON - Close in 5 min', message='LONDON - Close in 5 min')
+alertcondition(condition=(londonOpen == false and londonIn5Min), title='LONDON - Open in 5 min', message='LONDON - Open in 5 min')
+newYorkIn5Min = newYorkHours == 0 and newYorkMinutes == 5
+alertcondition(condition=(newYorkOpen == true and newYorkIn5Min), title='NEW YORK - Close in 5 min', message='NEW YORK - Close in 5 min')
+alertcondition(condition=(newYorkOpen == false and newYorkIn5Min), title='NEW YORK - Open in 5 min', message='NEW YORK - Open in 5 min')
+berlinIn5Min = berlinHours == 0 and berlinMinutes == 5
+alertcondition(condition=(berlinOpen == true and berlinIn5Min), title='BERLIN - Close in 5 min', message='BERLIN - Close in 5 min')
+alertcondition(condition=(berlinOpen == false and berlinIn5Min), title='BERLIN - Open in 5 min', message='BERLIN - Open in 5 min')
+tokyoIn5Min = tokyoHours == 0 and tokyoMinutes == 5
+alertcondition(condition=(tokyoOpen == true and tokyoIn5Min), title='TOKYO - Close in 5 min', message='TOKYO - Close in 5 min')
+alertcondition(condition=(tokyoOpen == false and tokyoIn5Min), title='TOKYO - Open in 5 min', message='TOKYO - Open in 5 min')

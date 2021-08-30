@@ -1,0 +1,234 @@
+//@version=4
+study(title='My Bitcoin Macro Cycle', shorttitle='mbmc', overlay=true)
+
+chartBackgroundColor     = input(color.black, title="Chart Background Color", type=input.color)
+mode                     = input('MACRO', title='Configuration Mode', options=['MACRO', 'MACRO LOGARITHMIC', 'DAILY', 'CUSTOM'])
+showLogCurveInput        = input(false, title='Show Logarithmic Curves', group='Custom Config')
+showPiCycleInput         = input(false, title='Show Pi Cycle', group='Custom Config')
+showDCAInput             = input(false, title='Show DCA Accumulation', group='Custom Config')
+showMovingAveragesInput  = input(false, title='Show Moving Averages Lines', group='Custom Config')
+showMayersMultiplesInput = input(false, title='Show Mayers Multiples Lines', group='Custom Config')
+showSRBandsInput         = input(false, title='Show Support And Resistance Bands', group='Custom Config')
+showPuellMultipleInput   = input(false, title='Show Puell Multiple', group='Custom Config')
+
+showLogCurve        = showLogCurveInput or mode == 'MACRO LOGARITHMIC'
+showPiCycle         = showPiCycleInput or mode == 'MACRO' or mode == 'MACRO LOGARITHMIC'
+showDCA             = showDCAInput or mode == 'MACRO' or mode == 'MACRO LOGARITHMIC'
+showMovingAverages  = showMovingAveragesInput
+showSRBands         = showSRBandsInput
+showMarketSupport   = showSRBandsInput or mode == 'MACRO' or mode == 'MACRO LOGARITHMIC'
+showMayersMultiples = showMayersMultiplesInput
+showPuellMultiple   = showPuellMultipleInput or mode == 'MACRO' or mode == 'MACRO LOGARITHMIC'
+
+///////////////////////////////////////////////////////////
+// SMA
+///////////////////////////////////////////////////////////
+
+// SMA 21 Days - First dynamic support
+sma_21_D  = security(syminfo.tickerid, '1D', sma(close, 21))
+sma_21_D_color = #e5de14 // Yellow
+
+// SMA 111 Days - Coming in pair with SMA 350 days * 2 for the PI Cycle TOP
+sma_111_D = security(syminfo.tickerid, '1D', sma(close, 111))
+sma_111_D_color = #5263e5 // Blue
+
+// SMA 200 Days - Bull Market Support coming in pair with EMA 21
+sma_200_D = security(syminfo.tickerid, '1D', sma(close, 200))
+sma_200_D_color = #ffffff // White TRANSPARENT
+
+sma_4_Y = security(syminfo.tickerid, '1D', sma(close, 1458))
+sma_4_Y_color = #A15E49 // Redwood TRANSPARENT
+
+sma_200_W = security(syminfo.tickerid, '1D', sma(close, 1400))
+sma_200_W_color = #A15E49 // Redwood TRANSPARENT
+
+sma_350_D_By_2 = security(syminfo.tickerid, '1D', sma(close, 350)*2)
+sma_350_D_By_2_color = #FF312E // Red RYB
+
+sma_7_W = security(syminfo.tickerid, '1D', sma(close, 49))
+sma_7_W_color = #004F2D // Forest Green Traditional
+
+///////////////////////////////////////////////////////////
+// EMA
+///////////////////////////////////////////////////////////
+
+// EMA 21 Weeks - Bull Market Support coming in pair with SMA 200
+ema_21_W  = security(syminfo.tickerid, '1D', ema(close, 147))
+ema_21_W_color = #ffffff // White TRANSPARENT
+
+///////////////////////////////////////////////////////////
+// Mayers Multiple - PI Cycle Top
+///////////////////////////////////////////////////////////
+
+colorDashed(barIndex, color) => bar_index % 2 == 0 ? color : chartBackgroundColor
+
+mayersMultiple06 = sma_200_D * 0.6
+mayersMultiple06Color = colorDashed(bar_index, #ffffff)
+
+mayersMultiple24 = sma_200_D * 2.4
+mayersMultiple24Color = colorDashed(bar_index, #63ea54)
+
+mayersMultiple5 = sma_200_D * 5
+mayersMultiple5Color = colorDashed(bar_index, #e85376)
+
+///////////////////////////////////////////////////////////
+// Moving Averages Plot
+///////////////////////////////////////////////////////////
+getTransparency(b, v) =>
+    b ? v : 100
+
+sma21DaysToPlot = showMovingAverages ? sma_21_D : na
+sma21DaysPlot = plot(sma21DaysToPlot, color=color.new(sma_21_D_color, getTransparency(showMovingAverages, 55)), linewidth=1, title="SMA 21 D")
+
+sma111DaysToPlot = showMovingAverages ? sma_111_D : na
+sma111DaysPlot = plot(sma111DaysToPlot, color=color.new(sma_111_D_color, getTransparency(showMovingAverages, 55)), linewidth=1, title="SMA 111 D")
+
+ema21WeeksToPlot = showSRBands or showMovingAverages ? ema_21_W : na
+ema21WeeksPlot = plot(ema21WeeksToPlot, color=color.new(ema_21_W_color, getTransparency(showMovingAverages, 55)), linewidth=1, title="EMA 21 W")
+sma200DaysToPlot = showSRBands or showMovingAverages ? sma_200_D : na
+sma200DaysPlot = plot(sma200DaysToPlot, color=color.new(sma_200_D_color, getTransparency(showMovingAverages, 55)), linewidth=1, title="SMA 200 D")
+
+sma4YearsToPlot = showSRBands or showMovingAverages or showMarketSupport ? sma_4_Y : na
+sma4YearsPlot = plot(sma4YearsToPlot, color=color.new(sma_4_Y_color, getTransparency(showMovingAverages, 55)), linewidth=1, title="SMA 4 Y")
+sma200WeeksToPlot = showSRBands or showMovingAverages or showMarketSupport ? sma_200_W : na
+sma200WeeksPlot = plot(sma200WeeksToPlot, color=color.new(sma_200_W_color, getTransparency(showMovingAverages, 55)), linewidth=1, title="SMA 200 W")
+
+sma350DaysBy2ToPlot = showMovingAverages ? sma_350_D_By_2 : na
+sma350DaysBy2Plot = plot(sma350DaysBy2ToPlot, color=color.new(sma_350_D_By_2_color, getTransparency(showMovingAverages, 55)), linewidth=1, title="SMA 350 D * 2")
+
+sma7WeeksToPlot = showMovingAverages ? sma_7_W : na
+sma7WeeksPlot = plot(sma7WeeksToPlot, color=color.new(sma_7_W_color, 90), linewidth=1, title="SMA 7 W")
+
+///////////////////////////////////////////////////////////
+// Mayers Multiple Plot
+///////////////////////////////////////////////////////////
+
+mayersMultiple06ToPlot = showMayersMultiples ? mayersMultiple06 : na
+mayersMultiple06Plot = plot(mayersMultiple06ToPlot, color=color.new(mayersMultiple06Color, getTransparency(showMayersMultiples, 55)), linewidth=1, title="MM 0.6")
+
+mayersMultiple24ToPlot = showMayersMultiples ? mayersMultiple24 : na
+mayersMultiple24Plot = plot(mayersMultiple24ToPlot, color=color.new(mayersMultiple24Color, getTransparency(showMayersMultiples, 55)), linewidth=1, title="MM 2.4")
+
+mayersMultiple5ToPlot = showMayersMultiples ? mayersMultiple5 : na
+mayersMultiple5Plot = plot(mayersMultiple5ToPlot, color=color.new(mayersMultiple5Color, getTransparency(showMayersMultiples, 55)), linewidth=1, title="MM 5")
+
+///////////////////////////////////////////////////////////
+// Support Band Plot
+///////////////////////////////////////////////////////////
+
+// Bull Market Support Band - 21 weeks ema + 200 days sma
+bullMarketSupportBandColor = color.new(#805E73, 55) // Mauve Taupe
+supportFilling_1 = plot(sma200DaysToPlot, color=color.new(color.white, getTransparency(showMovingAverages and showSRBands, 55)))
+supportFilling_2  = plot(ema21WeeksToPlot, color=color.new(color.white, getTransparency(showMovingAverages and showSRBands, 55)))
+fill(supportFilling_1, supportFilling_2, color=color.new(bullMarketSupportBandColor, getTransparency(showSRBands, 35)), title='Bull Support Band')
+
+// Market Support Band - 4 Years sma + 200 weeks sma
+marketSupportBandColor = color.new(#A15E49, 55) // Redwood
+supportFilling_3 = plot(sma4YearsToPlot, color=color.new(color.white, getTransparency(showMovingAverages and showSRBands, 55)))
+supportFilling_4  = plot(sma200WeeksToPlot, color=color.new(color.white, getTransparency(showMovingAverages and showSRBands, 55)))
+fill(supportFilling_3, supportFilling_4, color=color.new(marketSupportBandColor, getTransparency(showSRBands or showMarketSupport, 35)), title='Market Support Band')
+
+///////////////////////////////////////////////////////////
+// Trend Color Filling
+///////////////////////////////////////////////////////////
+
+bearTrendColor = #941C2F // Crimson UA
+bullTrendColor = #60A561 // Forest Green Crayola
+
+trend1FillingToPlot = showSRBands ? sma_7_W : na
+trend2FillingToPlot = showSRBands ? sma_21_D : na
+trendColor = (sma_7_W < sma_21_D) ? bullTrendColor : bearTrendColor
+trendFilling_3 = plot(trend1FillingToPlot, color=color.new(color.white, getTransparency(showMovingAverages and showSRBands, 55)))
+trendFilling_4  = plot(trend2FillingToPlot, color=color.new(color.white, getTransparency(showMovingAverages and showSRBands, 55)))
+fill(trendFilling_3, trendFilling_4, color=color.new(trendColor, 55))
+
+///////////////////////////////////////////////////////////
+// DCA IN - Feigenbaum constant
+///////////////////////////////////////////////////////////
+
+timeDuration = time - time[1]
+timeDurationSinceGenesis = round((time - 1231502400 * 1000) / timeDuration)
+
+// Feigenbaum constant
+lm = round(timeDurationSinceGenesis/4.669201609102990671853203820466)
+clm = close[lm]
+plotshape(showDCA and crossover(clm[3], close[3]) and clm > close, text='DCA', location=location.belowbar, style=shape.triangleup, color=color.white, size=size.tiny)
+dcaTop = plot(showDCA and clm > close ? 2000000 : na, style=plot.style_line, linewidth=1, color=color.new(color.white, 100))
+dcaBottom = plot(showDCA and clm > close ? 1500000 : na, style=plot.style_line, linewidth=1, color=color.new(color.white, 100))
+fill(dcaTop, dcaBottom, color=color.new(color.yellow, 0))
+
+///////////////////////////////////////////////////////////
+// PI Cycle Out - In
+///////////////////////////////////////////////////////////
+dailyClose = security(syminfo.tickerid, '1D', close)
+
+piCycleBottom   = showPiCycle and crossover(mayersMultiple06, sma_21_D)
+piCycleTop      = showPiCycle and crossunder(sma_350_D_By_2, sma_111_D)
+piCycleTopBis   = showPiCycle and crossunder(sma_111_D, sma_350_D_By_2) ? dailyClose + (dailyClose/100 * 10) : na
+plotshape(piCycleTopBis, style=shape.labelup,size=size.small, text="?", color=#648aea, textcolor=color.black, location=location.belowbar)
+plotshape(piCycleBottom, style=shape.labelup,size=size.small, text="Cycle Bottom", color=#39d348, textcolor=color.black, location=location.belowbar)
+plotshape(piCycleTop, style=shape.labeldown,size=size.small, text="Cycle Top", color=#ed6565, textcolor=color.black, location=location.abovebar)
+
+/////////////////////////////////////////////
+// Logarithimc Curve
+/////////////////////////////////////////////
+timeIndex       = time < 1279670400000 ? 3.0 : (time - 1279670400000) / 86400000
+weight          = (log10(timeIndex + 10) * timeIndex * timeIndex - timeIndex) / 30000
+timeDelta       = time - time[1]
+highSlopeCum    = 0.00076 * timeIndex
+highLogDev      = timeIndex > 2 ? log(weight) + 1.06930947 + highSlopeCum : na
+highestLogDev   = timeIndex > 2 ? log(weight) + 1.371 + highSlopeCum : na
+lowSlopeCum     = 0.001329 * timeIndex
+lowLogDev       = timeIndex > 2 ? log(weight) + -3.0269716 + lowSlopeCum : na
+lowestLogDev    = timeIndex > 2 ? log(weight) + -3.71 + lowSlopeCum : na
+logRange        = highLogDev - lowLogDev
+fib9098Calc     = (logRange * 0.9098) + lowLogDev
+fib1459Calc     = (logRange * 0.1459) + lowLogDev
+highestDev      = pow(2.718281828459, highestLogDev)
+fib9098Dev      = pow(2.718281828459, fib9098Calc)
+fib1459Dev      = pow(2.718281828459, fib1459Calc)
+lowDev          = pow(2.718281828459, lowLogDev)
+
+logTop_1    = plot(showLogCurve ? highestDev : na,  color=color.new(color.white, 100), title='Log top 1')
+logTop_2    = plot(showLogCurve ? fib9098Dev : na,  color=color.new(color.white, 100), title='Log top 2')
+logBottom_1 = plot(showLogCurve ? fib1459Dev : na,  color=color.new(color.white, 100), title='Log bottom 1')
+logBottom_2 = plot(showLogCurve ? lowDev : na,      color=color.new(color.white, 100), title='Log bottom 2')
+
+fill(logTop_1,      logTop_2,       color.new(color.red, 50))
+fill(logBottom_1,   logBottom_2,    color.new(color.green, 50))
+
+// Projection
+Extension(_i, _slope, _intercept) =>
+    TI  = ((time + timeDelta *_i) -1279670400000) / 86400000
+    W   = (log10(TI + 10) * TI * TI - TI) / 30000
+    HSC = _slope * TI
+    HLD = log(W) + _intercept + HSC
+    HD  = pow(2.718281828459, HLD)
+    HD
+
+forLoopStep = timeframe.ismonthly == 1 ? ceil( 12 / timeframe.multiplier) : 
+              timeframe.isweekly == 1 ? ceil(26 / timeframe.multiplier) : 
+              timeframe.isdaily == 1 ? ceil(91 / timeframe.multiplier) : 
+              (timeframe.isminutes == 1) and (timeframe.multiplier > 59) ? ceil(10080 / timeframe.multiplier) : na
+              
+forLoopMax = na(forLoopStep) ? na : forLoopStep * 13
+
+if (showLogCurve and barstate.islast)
+    for i = 0 to forLoopMax-1 by forLoopStep
+        line.new(time + timeDelta * i, Extension(i, 0.00076, 1.35), time + timeDelta * (i + forLoopStep), Extension(i + forLoopStep, 0.00076, 1.35), xloc=xloc.bar_time, color=color.new(color.red, 50))
+        line.new(time + timeDelta * i, Extension(i, 0.00076, 0.89), time + timeDelta * (i + forLoopStep), Extension(i + forLoopStep, 0.00076, 0.89), xloc=xloc.bar_time, color=color.new(color.red, 50))
+        line.new(time + timeDelta * i, Extension(i, 0.001329, -3.0269716), time + timeDelta * (i + forLoopStep), Extension(i + forLoopStep, 0.001329, -3.0269716), xloc=xloc.bar_time, color=color.new(color.green, 50))
+        line.new(time + timeDelta * i, Extension(i, 0.001329, -2.8), time + timeDelta * (i + forLoopStep), Extension(i + forLoopStep, 0.001329, -2.8), xloc=xloc.bar_time, color=color.new(color.green, 50))
+
+///////////////////////////////////////////////////////////
+// Puell Multiple
+///////////////////////////////////////////////////////////
+
+mining_revenue_1_D  = security("QUANDL:BCHAIN/MIREV", "1D", close[1], barmerge.gaps_off, barmerge.lookahead_on)
+sma_355_D           = security("QUANDL:BCHAIN/MIREV", "1D", sma(close, 365)[1], barmerge.gaps_off, barmerge.lookahead_on)
+puellMultiple       = mining_revenue_1_D / sma_355_D
+puellMultipleBottom = showPuellMultiple and puellMultiple < 0.5
+puellMultipleTop    = showPuellMultiple and puellMultiple > 6
+
+plotshape(puellMultipleBottom, style=shape.diamond,size=size.tiny, color=#039b42, location=location.bottom)
+plotshape(puellMultipleTop, style=shape.diamond,size=size.tiny, color=#d3303e, location=location.top)

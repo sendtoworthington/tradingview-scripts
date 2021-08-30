@@ -1,0 +1,107 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Thlem
+
+//@version=4
+study("My:Bitcoin Risk Metric")
+///////////////////////////////////////////////////////////
+// SMA Risk Metric
+///////////////////////////////////////////////////////////
+length = 21
+sma1 = sma(close, length)
+sma2 = sma(close, length)
+dsma1 = security(syminfo.tickerid, "D", sma1)
+dsma2 = security(syminfo.tickerid, "W", sma2)
+SMARatio = dsma1 / dsma2
+SMARatioMaxVal = 4
+SMARatioNormalized = SMARatio / SMARatioMaxVal
+riskColor = if (SMARatioNormalized < 0.15)
+    #39FF14
+else if (SMARatioNormalized < 0.25)
+    #C7EA46
+else if (SMARatioNormalized < 0.35)
+    #FAE29C
+else if (SMARatioNormalized < 0.45)
+    #E6910E // Orange
+else if (SMARatioNormalized < 0.55)
+    #E3242B // Mid Red
+else
+    #9F191E // Dark Red
+    
+riskTop = plot(20, style=plot.style_line, linewidth=1, color=color.new(color.white, 100))
+riskBottom = plot(0, style=plot.style_line, linewidth=1, color=color.new(color.white, 100))
+fill(riskTop, riskBottom, color=color.new(riskColor, 0))
+
+length2 = 50
+sma12 = sma(close, length2)
+sma22 = sma(close, length2)
+dsma12 = security(syminfo.tickerid, "D", sma12)
+dsma22 = security(syminfo.tickerid, "W", sma22)
+SMARatio2 = dsma12 / dsma22
+SMARatioMaxVal2 = 4
+SMARatioNormalized2 = SMARatio2 / SMARatioMaxVal2
+riskColor2 = if (SMARatioNormalized2 < 0.15)
+    #39FF14
+else if (SMARatioNormalized2 < 0.25)
+    #C7EA46
+else if (SMARatioNormalized2 < 0.35)
+    #FAE29C
+else if (SMARatioNormalized2 < 0.45)
+    #F9E076
+else if (SMARatioNormalized2 < 0.55)
+    #E6910E // Orange
+else if (SMARatioNormalized2 < 0.65)
+    #E3242B // Mid Red
+else
+    #9F191E // Dark Red
+
+riskTop2 = plot(45, style=plot.style_line, linewidth=1, color=color.new(color.white, 100))
+riskBottom2 = plot(25, style=plot.style_line, linewidth=1, color=color.new(color.white, 100))
+fill(riskTop2, riskBottom2, color=color.new(riskColor2, 0))
+
+f_round( _val, _decimals) => 
+    // Rounds _val to _decimals places.
+    _p = pow(10,_decimals)
+    round(abs(_val)*_p)/_p*sign(_val)
+
+plot(series=f_round(SMARatioNormalized, 3), title="21risk", color=color.new(color.white, 100))
+plot(series=f_round(SMARatioNormalized2, 3), title="50risk", color=color.new(color.white, 100))
+
+alertcondition(true, title='2 Days - Bitcoin Risk Meter', message='21 SMA risk : {{plot(\"21risk\")}} | ' + '50 SMA risk : {{plot(\"50risk\")}}')
+
+length23 = 100
+sma123 = sma(close, length23)
+sma223 = sma(close, length23)
+dsma123 = security(syminfo.tickerid, "D", sma123)
+dsma223 = security(syminfo.tickerid, "W", sma223)
+SMARatio23 = dsma123 / dsma223
+SMARatioMaxVal23 = 4
+SMARatioNormalized23 = SMARatio23 / SMARatioMaxVal23
+riskColor23 = if (SMARatioNormalized23 < 0.15)
+    #39FF14
+else if (SMARatioNormalized23 < 0.25)
+    #C7EA46
+else if (SMARatioNormalized23 < 0.35)
+    #FAE29C
+else if (SMARatioNormalized23 < 0.45)
+    #F9E076
+else if (SMARatioNormalized23 < 0.55)
+    #E6910E // Orange
+else if (SMARatioNormalized23 < 0.75)
+    #E3242B // Mid Red
+else
+    #9F191E // Dark Red
+
+riskTop23 = plot(70, style=plot.style_line, linewidth=1, color=color.new(color.white, 100))
+riskBottom23 = plot(50, style=plot.style_line, linewidth=1, color=color.new(color.white, 100))
+fill(riskTop23, riskBottom23, color=color.new(riskColor23, 0))
+
+
+labelXLoc = time_close + (( time_close - time_close[1] ) * 6 ) // Set Label offset
+label = label.new (labelXLoc, 14, 'Low reliability' , xloc.bar_time, yloc.price, color.red, label.style_label_left, color.white, size=size.small )
+label.delete ( label[1] )   // Delete Previous Label
+
+label2 = label.new (labelXLoc, 35, 'Medium reliability' , xloc.bar_time, yloc.price, color.orange, label.style_label_left, color.white, size=size.small )
+label.delete ( label2[1] )   // Delete Previous Label
+
+label3 = label.new (labelXLoc, 55, 'High reliability' , xloc.bar_time, yloc.price, color.green, label.style_label_left, color.white, size=size.small )
+label.delete ( label3[1] )   // Delete Previous Label
