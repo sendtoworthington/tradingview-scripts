@@ -14,11 +14,11 @@ sma_200_W = security(syminfo.tickerid, '1D', sma(close, 1400))
 sma200WeeksPlot = plot(sma_200_W, color=color.new(color.white, 100), linewidth=1, title="SMA 200 W")
 
 // Bull Market Support Band - 21 weeks ema + 200 days sma
-bullMarketSupportBandColor = #805E73 // Mauve Taupe
+bullMarketSupportBandColor = color.lime
 fill(ema21WeeksPlot, sma200DaysPlot, color=color.new(bullMarketSupportBandColor, 75))
 
 // Market Support Band - 4 Years sma + 200 weeks sma
-marketSupportBandColor = #A15E49 // Redwood
+marketSupportBandColor = color.blue
 fill(sma4YearsPlot, sma200WeeksPlot, color=color.new(marketSupportBandColor, 75))
 
 ///////////////////////////////////////////////////////////
