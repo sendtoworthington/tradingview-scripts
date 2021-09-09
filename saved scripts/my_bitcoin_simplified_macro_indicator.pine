@@ -63,15 +63,20 @@ currentPreInValue := round(100 + (mayersMultiple06 - sma_21_D) / sma_21_D * 100)
 ///////////////////////////////////////////////////////////
 // DCA IN - Feigenbaum constant
 ///////////////////////////////////////////////////////////
-
 timeDuration = time - time[1]
 timeDurationSinceGenesis = round((time - 1231502400 * 1000) / timeDuration)
-
-// Feigenbaum constant
 lm = round(timeDurationSinceGenesis/4.669201609102990671853203820466)
 clm = close[lm]
-plotshape(crossover(clm[3], close[3]) and clm > close, text='DCA', location=location.belowbar, style=shape.triangleup, color=color.white, size=size.tiny)
-bgcolor(clm > close ? color.new(color.white, 95) : color.new(color.white, 100))
+plotshape(crossover(clm[3], close[3]) and clm > close, text='DCA', location=location.belowbar, style=shape.triangleup, color=color.yellow, size=size.tiny)
+bgcolor(clm > close ? color.new(color.yellow, 95) : color.new(color.yellow, 100))
+
+///////////////////////////////////////////////////////////
+// Puell Multiple
+///////////////////////////////////////////////////////////
+
+mining_revenue_1_D = security("QUANDL:BCHAIN/MIREV", "1D", close[1], barmerge.gaps_off, barmerge.lookahead_on)
+sma_355_D = security("QUANDL:BCHAIN/MIREV", "1D", sma(close, 365)[1], barmerge.gaps_off, barmerge.lookahead_on)
+puellMultiple = mining_revenue_1_D / sma_355_D
 
 ///////////////////////////////////////////////////////////
 // Text Info
@@ -80,8 +85,9 @@ bgcolor(clm > close ? color.new(color.white, 95) : color.new(color.white, 100))
 textEQ () =>
     tooltip = ''
     if (cycleOutCrossed == 1)
-        tooltip := tooltip + "Cycle Out to Cycle In (0% > 100%): " + tostring(currentPreInValue) + "%"
-        tooltip := tooltip + "\n" + "Cycle In to Cycle Out (0% > 100%): " + tostring(currentOutInValue) + "%"
+        tooltip := tooltip + "Cycle Out to Cycle In (0% > 100%) : " + tostring(currentPreInValue) + "%"
+        tooltip := tooltip + "\n\n" + "Cycle In to Cycle Out (0% > 100%) : " + tostring(currentOutInValue) + "%"
+        tooltip := tooltip + "\n\n" + "Puell Multiple (Buy < 0.5 / Sell > 6) : " + tostring(puellMultiple, '#.#')
     tooltip
 
 labelText = textEQ ()
