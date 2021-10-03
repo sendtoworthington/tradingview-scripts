@@ -1,0 +1,299 @@
+//@version = 4
+study(title='MY:Expert Advisor Signals', overlay=true)
+// EA ID 5608726102199
+
+///////////////////////////////////////////////
+// User Input
+///////////////////////////////////////////////
+
+// Metatrader Expert Advisor API Request Data
+EAuid           = input('',  title='EA UID',                       group = "Pine Connector Info", type=input.string)
+EAtickerId      = input('',  title='EA Ticker ID',                 group = "Pine Connector Info", type=input.string)
+EAvolume        = input(0.0, title='EA Volume',                    group = "Pine Connector Info", type=input.float)
+EAtakeProfit    = input(0,   title='EA Take Profit Pips',          group = "Pine Connector Info", type=input.integer)
+stopLoss        = input(0,   title='EA Stop Loss Pips (0 = auto)', group = "Pine Connector Info", type=input.integer)
+
+// Enable or Disable a Signal
+weekendSignals         = input(false, title='Enable Week End Signals',      group = "Signal E/D",   type=input.bool)
+enableChandelierSignal = input(false, title='Enable Chandelier Signal',     group = "Signal E/D",  type=input.bool)
+maxMinPriceCancel      = input(0,     title='Block Chandelier if gap',      group = "Signal E/D", type=input.integer)
+enableTdiStochSignal   = input(false, title='Enable TDI & STOCH Signal',    group = "Signal E/D",  type=input.bool)
+
+forceDisableSignals = weekendSignals == false and (dayofweek == dayofweek.sunday or dayofweek == dayofweek.saturday)
+
+// Enable / Disable visual plotting on the chart
+showIndicators  = input(true,   title='Display Indicators on the Chart', group = "Other", type=input.bool)
+playbackMode    = input(true,  title='Playback Mode',                   group = "Other", type=input.bool)
+var table panel = table.new("bottom_right", 10, 20, border_width = 1)
+
+//////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////
+// STRATEGY 1 -- Chandelier Strategy
+///////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////
+
+///////////////////////////////////////////////
+// STRATEGY 1 -- Indicators Configuration
+///////////////////////////////////////////////
+
+//
+// Bollinger Band Config
+//
+bollingerBandLength         = 20
+bollingerBandMultiplier     = 2
+bollingerBandBasis          = sma(close, bollingerBandLength)
+
+//
+// Average True Range Config
+//
+averageTrueRangeLength      = 22
+averageTrueRangeMultiplier  = 4.8 * atr(averageTrueRangeLength)
+
+//
+// Support of a bullish momentum. If the price is coming back down to this support, it's likely going to
+// trigger a Chandelier Short Signal
+//
+longStop        = highest(close, averageTrueRangeLength) - averageTrueRangeMultiplier
+longStopPrev    = nz(longStop[1], longStop) 
+longStop        := close[1] > longStopPrev ? max(longStop, longStopPrev) : longStop
+
+//
+// Resistance of a bearish momentum. If the price is coming back up to this resistance, it's likely going to
+// trigger a Chandelier Buy Signal
+//
+shortStop       = lowest(close, averageTrueRangeLength) + averageTrueRangeMultiplier
+shortStopPrev   = nz(shortStop[1], shortStop)
+shortStop       := close[1] < shortStopPrev ? min(shortStop, shortStopPrev) : shortStop
+
+//
+// Definition of the direction, 1 = bullish / -1 = bearish
+//
+var int dir     = 1
+dir             := close > shortStopPrev ? 1 : close < longStopPrev ? -1 : dir
+
+///////////////////////////////////////////////
+// STRATEGY 1 -- Alert Configuration
+///////////////////////////////////////////////
+
+//
+// We define whether we are on a buy or sell setup
+//
+maxMinPriceCancelV = if (maxMinPriceCancel == 0)
+    5000
+else
+    maxMinPriceCancel
+
+triggerChandelierBuy    = dir == 1 and dir[1] == -1 and close < shortStop + maxMinPriceCancelV
+triggerChandelierSell   = dir == -1 and dir[1] == 1 and close > longStop - maxMinPriceCancelV
+
+// To avoid triggering multiple identical signals (avoid multi orders)
+isChandellierBuyInProgress  = false
+isChandelierSellInProgress  = false
+
+// Will contain the type of order, buy or sell
+orderType = ''
+
+if (triggerChandelierBuy and isChandellierBuyInProgress == false)
+    isChandellierBuyInProgress  := true
+    isChandelierSellInProgress  := false
+    orderType                   := 'buy'
+
+if (triggerChandelierSell and isChandelierSellInProgress == false)
+    isChandellierBuyInProgress  := false
+    isChandelierSellInProgress  := true
+    orderType                   := 'sell'
+
+//
+// Alert configuration and trigger for the Chandelier Signal
+//
+chandelierAlertMessage = ''
+if (triggerChandelierSell or triggerChandelierBuy)
+    // Metatrader Expert Advisor Stop Loss update
+    // This stop loss is specific to the Chandelier Signal
+    EAStopLoss = if (stopLoss == 0)
+        gap = floor(close - bollingerBandBasis)
+        if (gap < 0)
+            gap * -10 // Stop Loss at the Bollinger Band Basis
+        else
+            gap * 10
+    else
+        stopLoss
+
+    chandelierAlertMessage    :=   tostring(EAuid) + ','
+    chandelierAlertMessage    :=  chandelierAlertMessage + tostring(orderType) + ','
+    chandelierAlertMessage    :=  chandelierAlertMessage + tostring(EAtickerId) + ','
+    chandelierAlertMessage    :=  chandelierAlertMessage + 'sl=' + tostring(EAStopLoss) + ','
+    chandelierAlertMessage    :=  chandelierAlertMessage + 'tp=' + tostring(EAtakeProfit) + ','
+    chandelierAlertMessage    :=  chandelierAlertMessage + 'risk=' + tostring(EAvolume)
+    
+    if (enableChandelierSignal and forceDisableSignals == false)
+        alert(tostring(chandelierAlertMessage), alert.freq_once_per_bar_close)
+
+/////////////////////////////////////////////////////////////
+// STRATEGY 1 -- Indicators Plot on the Chart - VISUAL ONLY
+/////////////////////////////////////////////////////////////
+
+longPlot        = plot(showIndicators and dir == 1 ? longStop : na,     display=display.none, editable=false)
+shortPlot       = plot(showIndicators and dir == -1 ? shortStop : na,   display=display.none, editable=false)
+midPricePlot    = plot(showIndicators ? ohlc4 : na,                     display=display.none, editable=false)
+
+fill(midPricePlot,          longPlot,   color=color.new(color.green, 90))
+fill(midPricePlot,          shortPlot,  color=color.new(color.red, 90))
+plot(bollingerBandBasis,    "Basis",    color=color.new(#FF6D00, 90))
+
+/////////////////////////////////////////////////////////////
+// STRATEGY 1 -- Playback Mode
+/////////////////////////////////////////////////////////////
+if (playbackMode and (triggerChandelierSell or triggerChandelierBuy))
+    table.cell(panel, 0, 0, tostring(orderType), bgcolor = color.gray, text_size=size.auto)
+    table.cell(panel, 1, 0, 'Chandelier alert', bgcolor = color.gray, text_size=size.auto)
+    table.cell(panel, 2, 0, tostring(chandelierAlertMessage), bgcolor = color.gray, text_size=size.auto)
+
+///////////////////////////////////////////////
+// STRATEGY 1 -- Chandelier Strategy - END   //
+///////////////////////////////////////////////
+
+// --------------------------------------------------------------------------------------------------------------- //
+
+//////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////
+// STRATEGY 2 -- TDI & STOCH Strategy
+///////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////
+
+///////////////////////////////////////////////
+// STRATEGY 2 -- TDI Indicator Configuration
+///////////////////////////////////////////////
+
+rsiPeriod       = 14
+rsiOversold     = 30
+rsiOverbought   = 72
+
+// The RSI is moving inside/outside a band defined by a upper band and a lower band
+// We check its state on the previous candle to avoid a setup where 
+// the signal is triggered early in the new candle and the candle keeps pushing
+// in the same direction
+rsiValue            = rsi(close[1], rsiPeriod)
+rsiMovingAverage    = sma(rsiValue, 31)
+offs                = (1.6185 * stdev(rsiValue, 31))
+upperBand           = rsiMovingAverage + offs
+lowerBand           = rsiMovingAverage - offs
+mid                 = (upperBand + lowerBand) / 2
+rsiFastMA           = sma(rsiValue, 1)
+rsiSlowMA           = sma(rsiValue, 9)
+
+// Based on the TDI indicator, a signal is triggered when the 
+// RSI is over sold and below the lower band, or over bought and above the upper band
+tdiBuySignal    = rsiFastMA <= lowerBand and rsiFastMA <= rsiOversold
+tdiSellSignal   = rsiFastMA >= upperBand and rsiFastMA >= rsiOverbought
+
+////////////////////////////////////////////////////
+// STRATEGY 2 -- STOCHASTIC Indicator Configuration
+////////////////////////////////////////////////////
+
+highValue   = 82
+lowValue    = 18
+smoothingK  = 5
+smoothingD  = 3
+
+getStoch(stochPeriod) =>
+    values = array.new_float()
+    k = sma(stoch(close, high, low, stochPeriod), smoothingD)
+    array.push(values, k)
+    array.push(values, sma(k, smoothingD))
+    values
+
+//
+// Stoch Period 1 - SMA 15
+//
+sotch1 = getStoch(15)
+stoch1k = array.get(sotch1, 0)
+stoch1d = array.get(sotch1, 1)
+//
+// Stoch Period 2 - SMA 32
+//
+sotch2 = getStoch(32)
+stoch2k = array.get(sotch2, 0)
+stoch2d = array.get(sotch2, 1)
+//
+// Stoch Period 3 - SMA 50
+//
+sotch3 = getStoch(50)
+stoch3k = array.get(sotch3, 0)
+stoch3d = array.get(sotch3, 1)
+
+// Based on the TRIPPLE STOCHASTIC indicator, a signal is triggered when the
+// 3 Periods are above or below a certain value at the same time
+stochBuySignal = stoch1k <= lowValue and stoch1d <= lowValue and stoch2k <= lowValue and stoch2d <= lowValue and stoch3k <= lowValue and stoch3d <= lowValue
+stochSellSignal = stoch1k >= highValue and stoch1d >= highValue and stoch2k >= highValue and stoch2d >= highValue and stoch3k >= highValue and stoch3d >= highValue
+
+////////////////////////////////////////////////////
+// STRATEGY 2 -- Signals Configuration
+////////////////////////////////////////////////////
+
+isTdiStochBuy   = tdiBuySignal and stochBuySignal
+isTdiStochSell  = tdiSellSignal and stochSellSignal
+
+// to avoid multiple signals, we block any new signal if it the same signal
+// happens less than 10 candles forward
+var buyCountLock = 0
+if (buyCountLock > 0)
+    buyCountLock := buyCountLock + 1
+if (isTdiStochBuy and buyCountLock == 0)
+    buyCountLock := 1
+if (buyCountLock > 10)
+    buyCountLock := 0
+
+var sellCountLock = 0
+if (sellCountLock > 0)
+    sellCountLock := sellCountLock + 1
+if (isTdiStochSell and sellCountLock == 0)
+    sellCountLock := 1
+if (sellCountLock > 10)
+    sellCountLock := 0
+
+triggerTdiStochBuy  = buyCountLock == 1 and isTdiStochBuy
+triggerTdiStochSell = sellCountLock == 1 and isTdiStochSell
+
+//
+// Alert configuration and trigger for the TDI & STOCHASTIC Signal
+//
+tdiStochAlertMessage = ''
+if (triggerTdiStochSell or triggerTdiStochBuy)
+    // Metatrader Expert Advisor Stop Loss update
+    // This stop loss is specific to the TDI & STOCHASTIC Signal
+    // 30000 is equals to 3000$ BTC price change
+    EAStopLoss = stopLoss
+
+    orderType := if (triggerTdiStochSell)
+        'sell'
+    else if (triggerTdiStochBuy)
+        'buy'
+
+    tdiStochAlertMessage    :=   tostring(EAuid) + ','
+    tdiStochAlertMessage    :=  tdiStochAlertMessage + tostring(orderType) + ','
+    tdiStochAlertMessage    :=  tdiStochAlertMessage + tostring(EAtickerId) + ','
+    tdiStochAlertMessage    :=  tdiStochAlertMessage + 'sl=' + tostring(EAStopLoss) + ','
+    tdiStochAlertMessage    :=  tdiStochAlertMessage + 'tp=' + tostring(EAtakeProfit) + ','
+    tdiStochAlertMessage    :=  tdiStochAlertMessage + 'risk=' + tostring(EAvolume)
+    
+    if (enableTdiStochSignal and forceDisableSignals == false)
+        alert(tostring(tdiStochAlertMessage), alert.freq_once_per_bar_close)
+
+/////////////////////////////////////////////////////////////
+// STRATEGY 2 -- Indicators Plot on the Chart - VISUAL ONLY
+/////////////////////////////////////////////////////////////
+plotshape(triggerTdiStochBuy and showIndicators, style=shape.labelup,size=size.small, text='B', color=color.green, textcolor=color.white, location=location.belowbar)
+plotshape(triggerTdiStochSell and showIndicators, style=shape.labeldown,size=size.small, text='S', color=color.red, textcolor=color.white, location=location.abovebar)
+
+/////////////////////////////////////////////////////////////
+// STRATEGY 2 -- Playback Mode
+/////////////////////////////////////////////////////////////
+if (playbackMode and (triggerTdiStochSell or triggerTdiStochBuy))
+    table.cell(panel, 0, 1, tostring(orderType), bgcolor = color.gray, text_size=size.auto)
+    table.cell(panel, 1, 1, 'TDI / STOCH alert', bgcolor = color.gray, text_size=size.auto)
+    table.cell(panel, 2, 1, tostring(tdiStochAlertMessage), bgcolor = color.gray, text_size=size.auto)
+
+///////////////////////////////////////////////
+// STRATEGY 2 -- TDI & STOCH Strategy - END  //
+///////////////////////////////////////////////
