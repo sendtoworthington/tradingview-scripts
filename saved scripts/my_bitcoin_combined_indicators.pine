@@ -4,7 +4,7 @@
 //@version=5
 indicator("My:Bitcoin Combined Indicators")
 
-mode = input.string('BEAM', 'Configuration mode :', options=['BEAM', 'Risk Metric #1', 'Risk Metric #2', 'NVT Ratio', 'Mayers Multiple', 'Fear & Greed'])
+mode = input.string('BEAM', 'Configuration mode :', options=['BEAM', 'Risk Metric #1', 'Risk Metric #2', 'NVT Ratio', 'Mayers Multiple', 'Fear & Greed', 'Difficulty & Hashrate'])
 
 ///////////////////////////////////////////////////////////
 // Colors Config                                         //
@@ -293,3 +293,56 @@ plot(show(isFearAndGreed, fearAndGreedValue), color=getFearGreedColor(fearAndGre
 plot(show(isFearAndGreed, 62), color=color.red, linewidth=2, title="extreme greed")
 plot(show(isFearAndGreed, -72), color=color.green, linewidth=2, title="extream fear")
 plot(show(isFearAndGreed, -22), color=color.yellow, linewidth=2, title="fear")
+
+///////////////////////////////////////////////////////////////////////
+// -------------------------------------------                       //
+// ---Mining Difficulty & Hashrate indicator--                       //
+// -------------------------------------------                       //
+///////////////////////////////////////////////////////////////////////
+isMiningDifficultyAndHashrate = mode == 'Difficulty & Hashrate'
+hashrate = request.security("QUANDL:BCHAIN/HRATE", "D", close, gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_on)
+previousHashrate = request.security("QUANDL:BCHAIN/HRATE", "D", close[1], gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_on)
+previous7Hashrate = request.security("QUANDL:BCHAIN/HRATE", "D", close[7], gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_on)
+previous30Hashrate = request.security("QUANDL:BCHAIN/HRATE", "D", close[30], gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_on)
+hashrate_mean_7 = request.security("QUANDL:BCHAIN/HRATE", "D", ta.sma(close, 30), gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_on)
+hashrate_mean_21 = request.security("QUANDL:BCHAIN/HRATE", "D", ta.sma(close, 60),gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_on)
+
+hashrate_plot = plot(show(isMiningDifficultyAndHashrate, hashrate), "Hashrate", style=plot.style_line, color=color.teal)
+hashrate_mean_7_plot = plot(show(isMiningDifficultyAndHashrate, hashrate_mean_7), "Hashrate Mean 7", color=color.new(color.gray, 100), style=plot.style_line)
+hashrate_mean_21_plot = plot(show(isMiningDifficultyAndHashrate, hashrate_mean_21), style=plot.style_line, color=color.new(color.gray, 100), title='Hashrate Mean 21')
+fill(hashrate_mean_21_plot, hashrate_mean_7_plot, color=hashrate_mean_21 < hashrate_mean_7 ? color.new(color.green, 85) : color.new(color.red, 85))
+
+difficulty = request.security("QUANDL:BCHAIN/DIFF","D", close, gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_on) / 60000
+previousDifficulty = request.security("QUANDL:BCHAIN/DIFF","D", close[1], gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_on) / 60000
+previous7Difficulty = request.security("QUANDL:BCHAIN/DIFF","D", close[7], gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_on) / 60000
+previous30Difficulty = request.security("QUANDL:BCHAIN/DIFF","D", close[30], gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_on) / 60000
+
+difficulty_plot = plot(show(isMiningDifficultyAndHashrate, difficulty), "Difficulty", color=#EAEAEA, style=plot.style_line, linewidth=3)
+
+if (isMiningDifficultyAndHashrate)
+    hashrateDailyChange = (hashrate - previousHashrate) / previousHashrate * 100
+    hashrateDailyChangePositive = hashrateDailyChange > 0 ? '+' : ''
+    hashrate7Change = (hashrate - previous7Hashrate) / previous7Hashrate * 100
+    hashrateSevenDayChangePositive = hashrate7Change > 0 ? '+' : ''
+    hashrate30Change = (hashrate - previous30Hashrate) / previous30Hashrate * 100
+    hashrateThirtyDayChangePositive = hashrate30Change > 0 ? '+' : ''
+
+    difficultyDailyChange = (difficulty - previousDifficulty) / previousDifficulty * 100
+    dailyChangePositive = difficultyDailyChange > 0 ? '+' : ''
+    difficulty7Change = (difficulty - previous7Difficulty) / previous7Difficulty * 100
+    sevenDayChangePositive = difficulty7Change > 0 ? '+' : ''
+    difficulty30Change = (difficulty - previous30Difficulty) / previous30Difficulty * 100
+    thirtyDayChangePositive = difficulty30Change > 0 ? '+' : ''
+
+    hashrateLabelText = '  -- Hashrate --  \n'
+    hashrateLabelText := hashrateLabelText + '1 Day : ' + hashrateDailyChangePositive + str.tostring(hashrateDailyChange, '#.#') + '%\n'
+    hashrateLabelText := hashrateLabelText + '7 Days : ' + hashrateSevenDayChangePositive + str.tostring(hashrate7Change, '#.#') + '%\n'
+    hashrateLabelText := hashrateLabelText + '30 Days : ' + hashrateThirtyDayChangePositive + str.tostring(hashrate30Change, '#.#') + '%'
+    hashrateLabel_xloc = time_close + (( time_close - time_close[1] ) * 6 )
+    hashrateLabelText := hashrateLabelText + '\n\n  -- Difficulty --  \n'
+    hashrateLabelText := hashrateLabelText + '1 Day : ' + dailyChangePositive + str.tostring(difficultyDailyChange, '#.#') + '%\n'
+    hashrateLabelText := hashrateLabelText + '7 Days : ' + sevenDayChangePositive + str.tostring(difficulty7Change, '#.#') + '%\n'
+    hashrateLabelText := hashrateLabelText + '30 Days : ' + thirtyDayChangePositive + str.tostring(difficulty30Change, '#.#') + '%'
+
+    hashrateLabel = label.new(hashrateLabel_xloc, hashrate, hashrateLabelText , xloc.bar_time, yloc.price, color=color.teal, style=label.style_label_left, textcolor=color.white, size=size.normal )
+    label.delete( hashrateLabel[1] )
