@@ -1,0 +1,79 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Thlem
+
+//@version=4
+study("My:MANNARINO MARKET RISK INDICATOR", "MMRI")
+
+mode = input("Line Chart", title="Configuration mode :", options=['Line Chart', 'Table'])
+isSimplified = mode == "Table"
+showHist = input(false, title="Show Historic crashes")
+showScale = input(false, title="Show Scale")
+
+us10y = security("TVC:US10Y", '1D', close)
+dxy = security("TVC:DXY", '1D', close)
+risk = us10y * dxy / 1.61
+
+riskLabel = if (risk <= 100)
+    " (Low Risk)"
+else if (risk <= 200 )
+    " (Medium Risk)"
+else if (risk <= 300 )
+    " (High Risk)"
+else
+    " (Extreme Risk)"
+
+riskColor = if (risk <= 50)
+    color.aqua
+else if (risk <= 100)
+    color.lime
+else if (risk <= 200 )
+    color.yellow
+else if (risk <= 300 )
+    color.orange
+else
+    color.red
+
+var table panel = table.new("bottom_right", 10, 20, border_width = 1)
+if (isSimplified)
+    table.cell(panel, 1, 0, "Risk", bgcolor = color.green, text_size=size.auto)
+    table.cell(panel, 1, 1, tostring(risk, '#.#') + tostring(riskLabel), bgcolor = riskColor, text_size=size.auto)
+histIndex = showHist == true and showScale == false ? 2 : 3
+if (showHist)
+    //1987 stock market crash, this number was 488, and at the 08’ meltdown it was nearly 200. The Dot-Com bubble/crash this number was 360 As a general rule
+    table.cell(panel, histIndex, 0, "(488) - 1987 stock market crash", bgcolor = color.silver, text_size=size.small)
+    table.cell(panel, histIndex, 1, "(200) - 2008 stock market crash", bgcolor = color.silver, text_size=size.small)
+    table.cell(panel, histIndex, 2, "(360) - Dot-Com bubble", bgcolor = color.silver, text_size=size.small)
+if (showScale)
+    table.cell(panel, 2, 0, "0-100 : Low Risk", bgcolor = color.lime, text_size=size.small)
+    table.cell(panel, 2, 1, "100-200 : Medium Risk", bgcolor = color.yellow, text_size=size.small)
+    table.cell(panel, 2, 2, "200-300 : High Risk", bgcolor = color.orange, text_size=size.small)
+    table.cell(panel, 2, 3, "> 300 : Extreme Risk", bgcolor = color.red, text_size=size.small)
+
+plot(isSimplified ? na : risk, "Risk", style=plot.style_line, color=riskColor)
+
+getPositive(value) => value > 0 ? '+' : ''
+
+us10y_yesterday = security("TVC:US10Y", '1D', close[1])
+dxy_yesterday = security("TVC:DXY", '1D', close[1])
+risk_yesterday = us10y * dxy / 1.61
+riskDailyChange = (risk - risk_yesterday) / risk_yesterday * 100
+
+us10y_7D = security("TVC:US10Y", '1D', close[7])
+dxy_7D = security("TVC:DXY", '1D', close[7])
+risk_7D = us10y_7D * dxy_7D / 1.61
+risk7DailyChange = (risk - risk_7D) / risk_7D * 100
+
+us10y_30D = security("TVC:US10Y", '1D', close[30])
+dxy_30D = security("TVC:DXY", '1D', close[30])
+risk_30D = us10y_30D * dxy_30D / 1.61
+risk30DailyChange = (risk - risk_30D) / risk_30D * 100
+
+if (isSimplified == false)
+    riskLabelText = tostring(risk, '#.#') + tostring(riskLabel)
+    riskLabelText := riskLabelText + ' \n'
+    riskLabelText := riskLabelText + '1 Day : ' + tostring(getPositive(riskDailyChange)) + tostring(riskDailyChange, '#.#') + '%\n'
+    riskLabelText := riskLabelText + '7 Days : ' + tostring(getPositive(risk7DailyChange)) + tostring(risk7DailyChange, '#.#') + '%\n'
+    riskLabelText := riskLabelText + '30 Days : ' + tostring(getPositive(risk30DailyChange)) + tostring(risk30DailyChange, '#.#') + '%'
+    label_xloc = time_close + (( time_close - time_close[1] ) * 6 )
+    riskLabelTooltip = label.new(label_xloc, risk, riskLabelText , xloc.bar_time, yloc.price, color=color.teal, style=label.style_label_left, textcolor=color.white, size=size.normal )
+    label.delete( riskLabelTooltip[1] )

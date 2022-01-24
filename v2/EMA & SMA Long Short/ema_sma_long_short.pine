@@ -1,0 +1,23 @@
+//@version=5
+indicator("My:Expert Advisor:EMA/SMA-LONG/SHORT", overlay=true)
+
+ema3 = ta.ema(close, 3)
+
+plot(close, color=color.new(color.white, 100), title="price")
+
+len = input.int(7, minval=1, title="Length")
+src = input(close, title="Source")
+smma2 = 0.0
+smma2 := na(smma2[1]) ? ta.sma(src, len) : (smma2[1] * (len - 1) + src) / len
+plot(smma2, color=color.red)
+plot(ema3, color=color.yellow)
+
+    
+
+if (ta.crossover(smma2, ema3))
+    label.new(x=bar_index, y=na, yloc=yloc.abovebar, color=color.red, text='S', textcolor=color.white, style=label.style_label_down, size=size.small)
+    alert("SMA/EMA - SHORT", alert.freq_once_per_bar_close)
+if (ta.crossunder(smma2, ema3))
+    label.new(x=bar_index, y=na, yloc=yloc.belowbar, color=color.green, text='L', textcolor=color.white, style=label.style_label_up, size=size.small)
+    alert("SMA/EMA - LONG", alert.freq_once_per_bar_close)
+
