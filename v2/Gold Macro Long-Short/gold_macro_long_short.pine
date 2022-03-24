@@ -1,0 +1,62 @@
+//@version=4
+study(title='MY:GOLD/DXY (final)', shorttitle='GD', format=format.price, precision=2, resolution='')
+
+mode = input("Line Chart", title="Configuration mode :", options=['Line Chart', 'Overlay'])
+isOverlay = mode == 'Overlay'
+d = security("TVC:DXY", '1W', close)
+g = security("OANDA:XAUUSD", '1W', close)
+
+d_1 = security("TVC:DXY", '1W', close[1])
+g_1 = security("OANDA:XAUUSD", '1W', close[1])
+
+r = g / d
+r_1 = g_1 / d_1
+rplot = plot(isOverlay ? na : r, title='r', color=color.new(color.white, 70))
+
+us10y = security("TVC:US10Y", '1W', close)
+dxy = security("TVC:DXY", '1W', close)
+risk = us10y * dxy / 1.61 / 10
+
+us10y_1 = security("TVC:US10Y", '1W', close[1])
+dxy_1 = security("TVC:DXY", '1W', close[1])
+risk_1 = us10y_1 * dxy_1 / 1.61 / 10
+
+riskColor = if (risk <= 10)
+    color.blue
+else if (risk <= 20 )
+    color.green
+else if (risk <= 30 )
+    color.orange
+else
+    color.red
+rrplot = plot(isOverlay ? na : risk, title='rr', color=color.new(riskColor, 70))
+
+us10y_2 = security("TVC:US10Y", '1W', close[11])
+dxy_2 = security("TVC:DXY", '1W', close[11])
+risk_2 = us10y_2 * dxy_2 / 1.61 / 10
+d_2 = security("TVC:DXY", '1W', close[11])
+g_2 = security("OANDA:XAUUSD", '1W', close[11])
+
+r_2 = g_2 / d_2
+
+us10y_3 = security("TVC:US10Y", '1W', close[3])
+dxy_3 = security("TVC:DXY", '1W', close[3])
+risk_3 = us10y_3 * dxy_2 / 1.61 / 10
+d_3 = security("TVC:DXY", '1W', close[3])
+g_3 = security("OANDA:XAUUSD", '1W', close[3])
+
+r_3 = g_3 / d_3
+
+gap1 = risk_2 - r_2
+isSUp1 = gap1 >= 0.7
+
+
+bgcolor(crossunder(risk, r) and isSUp1 ? color.green : na)
+
+bgcolor(r_1 - risk_1 >= 15 and risk_1 < 10 and r < r_1 ? color.red : na)
+
+longSignal = crossunder(risk, r) and isSUp1
+shortSignal = r_1 - risk_1 >= 15 and risk_1 < 10 and r < r_1
+
+alertcondition(longSignal, title='XAU-USD WEEKLY LONG (LOW RISK)', message='Gold / DXY Ratio in a GREEN POSITION - WEEKLY LONG (LOW RISK)')
+alertcondition(shortSignal, title='XAU-USD WEEKLY SHORT (LOW RISK)', message='Gold / DXY Ratio in a RED POSITION - WEEKLY SHORT (LOW RISK)')
